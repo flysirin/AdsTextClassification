@@ -1,5 +1,5 @@
 import pandas as pd
-# import joblib
+import joblib
 from sklearn.model_selection import train_test_split
 from sklearn.feature_extraction.text import CountVectorizer
 
@@ -10,6 +10,8 @@ import torch.optim as optim
 from models.model import SimpleNN
 from config import config
 from utils.util import prepared_data_excel, get_input_data_file_excel
+
+from datetime import datetime
 
 file_path: str = get_input_data_file_excel(config.INPUT_DATA_PATH)
 df: pd.DataFrame = prepared_data_excel(file_path)
@@ -49,6 +51,7 @@ for epoch in range(num_epochs):
 
     print(f'Epoch [{epoch + 1}/{num_epochs}], Loss: {loss.item():.4f}')
 
-
+date_time = datetime.now().strftime("%Y%m%d-%H-%M")
 torch.save(model.state_dict(), f'{config.MODEL_PATH}/model.pth')
+joblib.dump(vectorizer, f'{config.MODEL_PATH}/vectorizer.pkl')
 

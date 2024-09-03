@@ -9,6 +9,7 @@
 **/*.csv
 
 **/*.pth
+**/*.pkl
 
 **/__pycache__
 __pycache__
