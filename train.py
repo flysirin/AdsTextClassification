@@ -1,3 +1,5 @@
+import json
+
 import pandas as pd
 import joblib
 from sklearn.model_selection import train_test_split
@@ -16,7 +18,6 @@ from datetime import datetime
 file_path: str = get_input_data_file_excel(config.INPUT_DATA_PATH)
 df: pd.DataFrame = prepared_data_excel(file_path)
 
-
 X = df['text']
 y = df['label_encoded']
 
@@ -28,17 +29,14 @@ vectorizer = CountVectorizer()
 X_train_vectors = vectorizer.fit_transform(X_train)
 X_test_vectors = vectorizer.transform(X_test)
 
-
 model = SimpleNN(input_size=X_train_vectors.shape[1],
                  hidden_size=100,
                  num_classes=len(df['label'].unique()))
 
-
 criterion = nn.CrossEntropyLoss()
 optimizer = optim.Adam(model.parameters(), lr=0.001)
 
-
-num_epochs = 20
+num_epochs = 10
 for epoch in range(num_epochs):
     # Прямое распространение
     outputs = model(torch.FloatTensor(X_train_vectors.toarray()))
@@ -51,7 +49,12 @@ for epoch in range(num_epochs):
 
     print(f'Epoch [{epoch + 1}/{num_epochs}], Loss: {loss.item():.4f}')
 
-date_time = datetime.now().strftime("%Y%m%d-%H-%M")
+date_time = datetime.now().strftime("%Y%m%d_%H-%M")
+
+labels_dict: dict = dict(zip(df['label_encoded'], df['label']))
+
 torch.save(model.state_dict(), f'{config.MODEL_PATH}/model.pth')
 joblib.dump(vectorizer, f'{config.MODEL_PATH}/vectorizer.pkl')
 
+with open(f'{config.MODEL_PATH}/labels_encoded.json', mode="w", encoding="utf-8") as file:
+    json.dump(labels_dict, file, default=int)
