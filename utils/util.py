@@ -1,7 +1,13 @@
+import json
+
 import pandas as pd
 from sklearn.preprocessing import LabelEncoder
 from pathlib import Path
-from config.config import INPUT_DATA_PATH
+
+from config import config
+
+
+# from config.config import INPUT_DATA_PATH
 
 
 def prepared_data_excel(file_path: str, label_name: str = 'label') -> pd.DataFrame:
@@ -14,7 +20,7 @@ def prepared_data_excel(file_path: str, label_name: str = 'label') -> pd.DataFra
     return labeled_df
 
 
-def get_input_data_file_excel(dir_path: str = INPUT_DATA_PATH,
+def get_input_data_file_excel(dir_path: str = config.INPUT_DATA_PATH,
                               label_name: str = 'label') -> None | str:
     files: list = list(Path(dir_path).glob('*.xlsx'))
     i = 0
@@ -22,8 +28,15 @@ def get_input_data_file_excel(dir_path: str = INPUT_DATA_PATH,
         print(f"Choose file:")
         print(f"filename: {file} / number - {i}")
     if i > 0:
-        x = input("number: ")
+        x = input("Input number?: ")
         if x.isdigit() and int(x) <= i:
-            return files[int(x)]
+            return files[int(x) - 1]
     else:
-        raise ValueError(f"No file found")
+        raise FileNotFoundError(f"No file found")
+
+
+def get_label_dict() -> dict:
+    with open(f"{config.MODEL_PATH}/labels_encoded.json") as file:
+        dict_labels = json.load(file)
+        dict_labels = {int(k): v for k, v in dict_labels.items()}
+    return dict_labels
