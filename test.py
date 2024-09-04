@@ -1,3 +1,4 @@
+import json
 import pandas as pd
 import torch
 import torch.nn as nn
@@ -5,6 +6,8 @@ import joblib
 from sklearn.feature_extraction.text import CountVectorizer
 from config import config
 from models.model import SimpleNN
+from utils.util import get_label_dict
+
 
 # Загрузка обученной модели и векторизатора
 vectorizer: CountVectorizer = joblib.load(f'{config.MODEL_PATH}/vectorizer.pkl')
@@ -29,6 +32,10 @@ with torch.no_grad():
     outputs = model(torch.FloatTensor(X_new_vectors.toarray()))
     _, predicted = torch.max(outputs.data, 1)
 
-# Сохраняем результаты в Excel
+
 df['predicted_label'] = predicted.numpy()
+label_dict = get_label_dict()
+df['label'] = df['predicted_label'].apply(lambda x: label_dict.get(x, 'Unknown'))
+
 df.to_excel(f'{config.OUTPUT_DATA_PATH}/labeled_predicted_data.xlsx', index=False)
+
