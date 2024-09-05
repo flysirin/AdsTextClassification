@@ -1,0 +1,15 @@
+# Specifying the source for PyTorch packages
+--index-url https://download.pytorch.org/whl/cu121
+
+# Packages with specific versions and source
+torch==2.4.1
+torchvision==0.19.1
+torchaudio==2.4.1
+
+# Packages from standard PyPI
+--extra-index-url https://pypi.org/simple
+
+pandas==2.1.2
+scikit-learn==1.5.1
+openpyxl
+torchtext==0.18.0

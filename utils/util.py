@@ -11,6 +11,8 @@ from config import config
 
 
 def prepared_data_excel(file_path: str, label_name: str = 'label') -> pd.DataFrame:
+    """Convert 'label' to number 'label_encoded' """
+
     df = pd.read_excel(file_path)
     labeled_df = df.dropna(subset=[f'{label_name}'])  # Keep only labeled data
 
@@ -20,7 +22,7 @@ def prepared_data_excel(file_path: str, label_name: str = 'label') -> pd.DataFra
     return labeled_df
 
 
-def get_input_data_file_excel(dir_path: str = config.INPUT_DATA_PATH,
+def get_input_data_file_excel(dir_path: str = config.TRAIN_DATA_PATH,
                               label_name: str = 'label') -> None | str:
     files: list = list(Path(dir_path).glob('*.xlsx'))
     i = 0
