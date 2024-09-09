@@ -22,6 +22,7 @@ model.eval()
 # Load new data for predict
 df: pd.DataFrame = pd.read_excel(f'{config.FOR_PREDICTION_PATH}/output.xlsx')
 X_new = df['text']
+# print('X_new: ', X_new)
 
 # Converting new data using the loaded vectorizer
 X_new_vectors = vectorizer.transform(X_new)
@@ -30,7 +31,8 @@ X_new_vectors = vectorizer.transform(X_new)
 with torch.no_grad():
     outputs = model(torch.FloatTensor(X_new_vectors.toarray()))
     _, predicted = torch.max(outputs.data, 1)
-
+# print('predicted: ', predicted)
+# print('predicted.numpy()', predicted.numpy())
 df['predicted_label'] = predicted.numpy()
 df['label'] = df['predicted_label'].apply(lambda x: label_dict.get(x, 'Unknown'))
 
