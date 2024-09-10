@@ -18,7 +18,7 @@ Column with label - named - 'label'
 5. ```python run_predict_data.py```
 6. Classificated data will be saved in `./data/output_data` with `label`
 
-## Environs
+## Requirements
 ```shell
 pip install -r requirements.txt
 ```
