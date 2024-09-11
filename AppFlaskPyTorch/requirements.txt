@@ -1,0 +1,4 @@
+-f https://download.pytorch.org/whl/torch_stable.html
+torch==2.3.0+cpu
+flask
+scikit-learn==1.5.1

@@ -1,0 +1,5 @@
+Contains:
+
+labels_encoded.json - label indexes
+model.pth - current model
+vectorizer.pkl - model settings and other

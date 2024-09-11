@@ -11,8 +11,8 @@
 **/*.pth
 **/*.pkl
 
-app.py
+./app.py
 
-Dockerfile
+./Dockerfile
 **/__pycache__
 __pycache__
