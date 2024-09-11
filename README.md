@@ -1,6 +1,8 @@
 # Text Classification with PyTorch and Scikit-Learn
 
 This project focuses on text classification using a neural network built with PyTorch. It leverages `CountVectorizer` from `scikit-learn` for text preprocessing and includes evaluation metrics such as accuracy, precision, recall, and F1-score to measure the model’s performance.
+Contains [AppFlaskPyTorch](AppFlaskPyTorch) - server with Flask and PyTorch on docker, click for read more information.
+
 
 
 ## How to use
@@ -34,7 +36,7 @@ numpy<2
 
 `numpy<2 ` - downgrade version for exclude conflicts  
 
-## Special Environs for using Cuda
+## Special requirements for using Cuda
 ```
 pip install -r requirements_cuda.txt
 ```
