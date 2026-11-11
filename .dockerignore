@@ -1,0 +1,7 @@
+**
+!pyproject.toml
+!uv.lock
+!AppFlaskPyTorch/
+!AppFlaskPyTorch/app.py
+!models/
+!models/model.py

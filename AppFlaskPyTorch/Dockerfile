@@ -1,29 +1,10 @@
-# First layer
-FROM python:3.12-slim AS builder
-
-COPY requirements.txt requirements.txt
-RUN pip install --no-cache-dir -r requirements.txt
-
-# Final image
 FROM python:3.12-slim
-
-# Copy only important extentions
-COPY --from=builder /usr/local/lib/python3.12/site-packages /usr/local/lib/python3.12/site-packages
-COPY --from=builder /usr/local/bin /usr/local/bin
-
-# Copy important models
-COPY config /app/config
-COPY models /app/models
-COPY saved /app/saved
-COPY utils /app/utils
-
-COPY app.py /app/app.py
-
-# Go to work path
+COPY --from=ghcr.io/astral-sh/uv:0.13.5 /uv /usr/local/bin/uv
 WORKDIR /app
-
-# Open port for Flask
+COPY pyproject.toml uv.lock ./
+RUN uv sync --locked --no-default-groups --extra cpu
+COPY AppFlaskPyTorch/app.py AppFlaskPyTorch/app.py
+COPY models/model.py models/model.py
+ENV PATH="/app/.venv/bin:$PATH" MODEL_PATH=/models
 EXPOSE 5000
-
-# Run
-CMD ["python", "app.py"]
+CMD ["gunicorn", "--workers", "1", "--bind", "0.0.0.0:5000", "AppFlaskPyTorch.app:app"]

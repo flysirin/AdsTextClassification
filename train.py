@@ -1,90 +1,80 @@
+import argparse
 import json
+from pathlib import Path
 
-import pandas as pd
 import joblib
-from sklearn.metrics import precision_score, recall_score, f1_score, accuracy_score
-from sklearn.model_selection import train_test_split
-from sklearn.feature_extraction.text import CountVectorizer
-
 import torch
-import torch.nn as nn
-import torch.optim as optim
+from sklearn.feature_extraction.text import CountVectorizer
+from sklearn.metrics import accuracy_score, precision_recall_fscore_support
+from sklearn.preprocessing import LabelEncoder
 
-from models.model import SimpleNN
 from config import config
-from utils.util import prepared_data_excel, get_input_data_file_excel
+from models.model import SimpleNN
+from utils.dataset_split import split_training_data
+from utils.util import get_input_data_file_excel, prepared_data_excel
 
-from datetime import datetime
 
-file_path: str = get_input_data_file_excel(config.TRAIN_DATA_PATH)
-df: pd.DataFrame = prepared_data_excel(file_path)  # prepared data
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--input", type=Path)
+    parser.add_argument("--model-dir", type=Path, default=Path(config.MODEL_PATH))
+    parser.add_argument("--epochs", type=int, default=100)
+    parser.add_argument("--device", choices=["cpu", "cuda"], default="cpu")
+    parser.add_argument("--seed", type=int, default=42)
+    args = parser.parse_args()
+    if args.epochs < 1:
+        parser.error("--epochs должен быть больше нуля")
+    if args.device == "cuda" and not torch.cuda.is_available():
+        parser.error("CUDA недоступна для текущего окружения или драйвера")
+    try:
+        frame = prepared_data_excel(args.input or get_input_data_file_excel())
+    except ValueError as error:
+        parser.error(str(error))
+    if frame["labels"].map(len).gt(1).any():
+        parser.error("Данные содержат несколько категорий в строке. Подготовка multilabel готова, "
+                     "но обучение с BCEWithLogitsLoss ещё не реализовано (чекпоинт 3 Roadmap). "
+                     "Обучение остановлено, чтобы не создавать составные классы.")
+    try:
+        split = split_training_data(frame, seed=args.seed)
+    except ValueError as error:
+        parser.error(str(error))
+    print("Разделение данных: " + json.dumps(split.report, ensure_ascii=False))
+    train, test = split.partitions["train"], split.partitions["test"]
+    # Валидация сохранена в split.partitions для следующего этапа подбора порогов.
+    encoder = LabelEncoder().fit(train["label"])
+    vectorizer = CountVectorizer()
+    x = vectorizer.fit_transform(train["text"])
+    x_test = vectorizer.transform(test["text"])
+    labels = torch.tensor(encoder.transform(train["label"]), dtype=torch.long)
+    names = dict(enumerate(encoder.classes_.tolist()))
+    torch.manual_seed(args.seed)
+    torch.set_num_threads(4)
+    model = SimpleNN(x.shape[1], 100, len(names)).to(args.device)
+    optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
+    for epoch in range(args.epochs):
+        total = 0.0
+        for ids in torch.randperm(x.shape[0]).split(128):
+            batch = torch.tensor(x[ids.numpy()].toarray(), dtype=torch.float32, device=args.device)
+            loss = torch.nn.functional.cross_entropy(model(batch), labels[ids].to(args.device))
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
+            total += loss.item() * len(ids)
+        print(f"Epoch {epoch + 1}/{args.epochs}, loss={total / x.shape[0]:.4f}")
+    model.eval()
+    predictions = []
+    with torch.inference_mode():
+        for offset in range(0, x_test.shape[0], 128):
+            batch = torch.tensor(x_test[offset:offset+128].toarray(), dtype=torch.float32, device=args.device)
+            predictions.extend(model(batch).argmax(dim=1).tolist())
+    y = encoder.transform(test["label"])
+    p, r, f, _ = precision_recall_fscore_support(y, predictions, average="weighted", zero_division=0)
+    print(f"Accuracy={accuracy_score(y, predictions):.4f} Precision={p:.4f} Recall={r:.4f} F1={f:.4f}")
+    args.model_dir.mkdir(parents=True, exist_ok=True)
+    torch.save(model.cpu().state_dict(), args.model_dir / "model.pth")
+    joblib.dump(vectorizer, args.model_dir / "vectorizer.pkl")
+    (args.model_dir / "labels_encoded.json").write_text(json.dumps(names, ensure_ascii=False), encoding="utf-8")
 
-X = df['text']
-y = df['label_encoded']
 
-# Data Splitting. Will split the data into training and test sets to check how well the model performs
-X_train, X_test, y_train, y_test = train_test_split(X, y,
-                                                    test_size=0.2,
-                                                    random_state=42)
-
-# Convert text to numeric data. One popular method is to use a Bag of Words or TF-IDF
-vectorizer = CountVectorizer()
-X_train_vectors = vectorizer.fit_transform(X_train)
-X_test_vectors = vectorizer.transform(X_test)
-
-torch.set_num_threads(4)
-print(torch.get_num_threads())  # This should print 5
-# Create a simple neural network in PyTorch to classify messages
-model = SimpleNN(input_size=X_train_vectors.shape[1],
-                 hidden_size=100,
-                 num_classes=len(df['label'].unique()))
-
-# Optimization and loss function
-criterion = nn.CrossEntropyLoss()
-optimizer = optim.Adam(model.parameters(), lr=0.001)
-
-# Model training
-num_epochs = 100
-for epoch in range(num_epochs):
-    # Direct distribution
-    outputs = model(torch.FloatTensor(X_train_vectors.toarray()))
-    loss = criterion(outputs, torch.LongTensor(y_train.to_numpy()))
-
-    # Backpropagation and optimization
-    optimizer.zero_grad()
-    loss.backward()
-    optimizer.step()
-
-    print(f'Epoch [{epoch + 1}/{num_epochs}], Loss: {loss.item():.4f}')
-
-date_time = datetime.now().strftime("%Y%m%d_%H-%M")
-
-# After training the model evaluate it on the test set
-with torch.no_grad():
-    outputs = model(torch.FloatTensor(X_test_vectors.toarray()))
-    _, predicted = torch.max(outputs.data, 1)
-
-    # # Accuracy assessment
-    # accuracy = (predicted == torch.LongTensor(y_test.to_numpy())).sum().item() / len(y_test)
-    # print(f'Accuracy: {accuracy * 100:.2f}%')
-
-y_test_tensor = torch.LongTensor(y_test.to_numpy())
-
-# Calculating metrics
-precision = precision_score(y_test_tensor, predicted, average='weighted')  # 'weighted' для многоклассовой классификации
-recall = recall_score(y_test_tensor, predicted, average='weighted')
-f1 = f1_score(y_test_tensor, predicted, average='weighted')
-accuracy = accuracy_score(y_test_tensor, predicted)
-
-print(f'Accuracy: {accuracy * 100:.2f}%')
-print(f'Precision: {precision * 100:.2f}%')
-print(f'Recall: {recall * 100:.2f}%')
-print(f'F1-score: {f1 * 100:.2f}%')
-
-# Save model and settings
-torch.save(model.state_dict(), f'{config.MODEL_PATH}/model.pth')
-joblib.dump(vectorizer, f'{config.MODEL_PATH}/vectorizer.pkl')
-
-labels_dict: dict = dict(zip(df['label_encoded'], df['label']))
-with open(f'{config.MODEL_PATH}/labels_encoded.json', mode="w", encoding="utf-8") as file:
-    json.dump(labels_dict, file, default=int)
+if __name__ == "__main__":
+    main()

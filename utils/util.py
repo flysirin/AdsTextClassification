@@ -1,44 +1,31 @@
 import json
-
-import pandas as pd
-from sklearn.preprocessing import LabelEncoder
+from dataclasses import asdict
 from pathlib import Path
 
 from config import config
+from utils.training_data import load_training_data
 
 
-# from config.config import INPUT_DATA_PATH
+def prepared_data_excel(file_path, label_name="label"):
+    frame, report = load_training_data(file_path, label_name)
+    print("Подготовка данных: " + json.dumps(asdict(report), ensure_ascii=False))
+    if frame.empty:
+        raise ValueError("Нет строк, допущенных к обучению")
+    return frame
 
 
-def prepared_data_excel(file_path: str, label_name: str = 'label') -> pd.DataFrame:
-    """Convert 'label' to number 'label_encoded' """
-
-    df = pd.read_excel(file_path)
-    labeled_df = df.dropna(subset=[f'{label_name}'])  # Keep only labeled data
-
-    label_encoder = LabelEncoder()
-    labeled_df['label_encoded'] = label_encoder.fit_transform(labeled_df['label'])
-
-    return labeled_df
-
-
-def get_input_data_file_excel(dir_path: str = config.TRAIN_DATA_PATH,
-                              label_name: str = 'label') -> None | str:
-    files: list = list(Path(dir_path).glob('*.xlsx'))
-    i = 0
-    for i, file in enumerate(files, 1):
-        print(f"Choose file:")
-        print(f"filename: {file} / number - {i}")
-    if i > 0:
-        x = input("Input number?: ")
-        if x.isdigit() and int(x) <= i:
-            return files[int(x) - 1]
-    else:
-        raise FileNotFoundError(f"No file found")
+def get_input_data_file_excel(dir_path=config.TRAIN_DATA_PATH, label_name="label"):
+    files = sorted(p for p in Path(dir_path).glob("*") if p.is_file() and p.suffix.lower() in {".xlsx", ".csv"})
+    if not files:
+        raise FileNotFoundError(f"В {dir_path} нет файлов .xlsx или .csv")
+    for number, path in enumerate(files, 1):
+        print(f"{number}. {path.name}")
+    selection = input("Номер файла: ").strip()
+    if not selection.isdecimal() or not 1 <= int(selection) <= len(files):
+        raise ValueError("Неверный номер файла")
+    return files[int(selection) - 1]
 
 
-def get_label_dict() -> dict:
-    with open(f"{config.MODEL_PATH}/labels_encoded.json") as file:
-        dict_labels = json.load(file)
-        dict_labels = {int(k): v for k, v in dict_labels.items()}
-    return dict_labels
+def get_label_dict():
+    data = json.loads((Path(config.MODEL_PATH) / "labels_encoded.json").read_text(encoding="utf-8"))
+    return {int(key): value for key, value in data.items()}

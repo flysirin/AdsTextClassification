@@ -1,64 +1,22 @@
-# Text Classification with PyTorch and Scikit-Learn
+# AdsTextClassification
 
-This project focuses on text classification using a neural network built with PyTorch. It leverages `CountVectorizer` from `scikit-learn` for text preprocessing and includes evaluation metrics such as accuracy, precision, recall, and F1-score to measure the model’s performance.
-Contains [AppFlaskPyTorch](AppFlaskPyTorch) - server with Flask and PyTorch on docker, click for read more information.
+Классификатор обучается локально на размеченных объявлениях и выдаёт одну категорию для каждого сообщения. Одним комплектом модели пользуются пакетный прогноз по таблице, Flask API и классификатор Telegram Finder.
 
+Для этого checkout в WSL выполните `cd /mnt/c/Dev/AdsTextClassification`. В Windows этот же каталог расположен по пути `C:\Dev\AdsTextClassification`. Все команды ниже выполняются из корня проекта в WSL или Linux x86-64. Нужны uv и Python 3.12. Версии зависимостей закреплены в `pyproject.toml` и `uv.lock`.
 
-
-## How to use
-1. Put labeled data **excel** file in `./data/train_data` for train model   
-Column with text - named - 'text'
-Column with label - named - 'label'  
-
-2. Run train model
- ```shell
-   python train.py
-   ```
-3. Model and parameters save in `./saved/model/`
-
-4. Put your data witch you want to classificate in `./data/for_prediction_data`
-5. ```python run_predict_data.py```
-6. Classificated data will be saved in `./data/output_data` with `label`
-
-## Requirements
-```shell
-pip install -r requirements.txt
-```
-##### Contains
-```
-torch==2.4.0
-pandas==2.2.2
-scikit-learn==1.5.1
-openpyxl
-torchtext==0.18.0
-numpy<2
+```bash
+uv sync --locked --extra cpu
+uv run --locked --extra cpu python train.py --input data/train_data/ads.csv
+uv run --locked --extra cpu python run_predict_data.py --input data/for_prediction_data/messages.xlsx --output data/output_data/predictions.csv
+uv run --locked --extra cpu python -m AppFlaskPyTorch.app
 ```
 
-`numpy<2 ` - downgrade version for exclude conflicts  
+Для обучения на NVIDIA в WSL выполните `bash scripts/train_cuda.sh` и выберите таблицу. Путь можно передать напрямую через `--input data/train_data/ads.csv`.
 
-## Special requirements for using Cuda
-```
-pip install -r requirements_cuda.txt
-```
-##### Contains
-```
-# Specifying the source for PyTorch packages
---index-url https://download.pytorch.org/whl/cu121
+Для обучения нужны столбцы `text` и `label`, для прогноза достаточно `text`. Обе команды принимают CSV и XLSX. Запуск train.py без --input открывает выбор файла из data/train_data. По умолчанию обучение записывает три файла в saved/model. Прогноз без аргументов читает data/for_prediction_data/output.xlsx. Расширение --output определяет формат результата. Если путь результата опущен, используется формат входного файла.
 
-# Packages with specific versions and source
-torch==2.4.1
-torchvision==0.19.1
-torchaudio==2.4.1
+Разметку с несколькими категориями через `|` можно проверить без обучения: `uv run --locked --extra cpu python -m utils.training_data --input data/train_data/labeled.csv`. Подготовка исключает `review`, ошибки разметки и незавершённые проверки; [правила и справочник категорий](docs/TRAINING.md) описывают отчёт и допуск строк. Полное multilabel-обучение ещё в разработке: текущий `train.py` останавливается, если после подготовки остались строки с несколькими метками.
 
-# Packages from standard PyPI
---extra-index-url https://pypi.org/simple
+Для подготовки воспроизводимой выборки выполните `uv run --locked --extra cpu python -m utils.dataset_split --input data/train_data/labeled.csv --output data/prepared/candidate-split --seed 42`. Новый каталог получит манифест состава и отчёт. Группы по ID и нормализованному тексту не пересекаются между обучением, валидацией и тестом; конфликтующая разметка исключается, повторы удаляются. Текущее однокатегорийное обучение использует такое же разделение 80/10/10 и поддерживает `--seed`.
 
-pandas==2.1.2
-scikit-learn==1.5.1
-openpyxl
-torchtext==0.18.0
-
-```
-
-#### Further development in progress
-
+[Документация](docs/README.md) · [Контейнер и HTTP API](AppFlaskPyTorch/README.md) · [Правила работы](AGENTS.md)

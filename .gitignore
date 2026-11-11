@@ -1,18 +1,73 @@
-.idea
-.venv
+# Локальные инструкции
+AGENTS.md
 
+# Виртуальные окружения
+.venv/
+.venv-*/
+venv/
+venv-*/
+env/
+ENV/
+
+# Кеши Python и инструментов
+.uv-cache/
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.pyre/
+.pytype/
+.hypothesis/
+.ipynb_checkpoints/
+
+# Результаты тестов и покрытия
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+/test-results/
+/test-reports/
+
+# Артефакты сборки
+build/
+dist/
+*.egg-info/
+.eggs/
+pip-wheel-metadata/
+
+# Локальная конфигурация
+.env
+.env.*
+!.env.example
+!.env.template
+.idea/
+.vscode/
+
+# Локальные таблицы и артефакты моделей
+*.csv
 *.xlsx
-**/*.xlsx
+*.json
+*.pth
+*.pt
+*.pkl
+*.joblib
+/data/prepared/
+/runs/
 
-**/*.json
+# Логи и временные файлы
+*.log
+*.tmp
+*.temp
+*.swp
+*.swo
+*~
+.labeling-write.lock/
 
-**/*.csv
+# Системные файлы
+.DS_Store
+Thumbs.db
+Desktop.ini
 
-**/*.pth
-**/*.pkl
-
-./app.py
-
-./Dockerfile
-**/__pycache__
-__pycache__
+.venv-labeling/
