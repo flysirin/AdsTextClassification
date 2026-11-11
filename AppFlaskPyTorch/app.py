@@ -16,6 +16,8 @@ class Predictor:
         from models.model import SimpleNN
 
         self.vectorizer = joblib.load(directory / "vectorizer.pkl")
+        if getattr(self.vectorizer, "classification_task_", "singlelabel") != "singlelabel":
+            raise ValueError("Multilabel candidate requires the new prediction contract; it cannot use argmax")
         with (directory / "labels_encoded.json").open(encoding="utf-8") as file:
             self.labels = {int(key): value for key, value in json.load(file).items()}
         if not self.labels or set(self.labels) != set(range(len(self.labels))):

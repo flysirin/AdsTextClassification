@@ -12,11 +12,13 @@ from utils.training_data import CATEGORIES, load_training_data
 ROOT = Path(__file__).resolve().parents[1]
 
 
+# Базовая подтверждённая запись позволяет менять один признак качества за раз.
 def record(text="Продаю стол", label="home", **metadata):
     return {"text": text, "label": label, "annotation_status": "completed",
             "review_required": False, "qa_status": "", **metadata}
 
 
+# CSV и XLSX одинаково нормализуют метки и исключают ошибки без изменения исходника.
 @pytest.mark.parametrize("ext,sep", [("xlsx", None), ("csv", ","), ("csv", ";")])
 def test_preparation_filters_and_normalizes_without_changing_source(tmp_path, ext, sep):
     text = '  Продаю "стол", цена; торг\nДоставка 🪑  '
@@ -59,6 +61,7 @@ def test_preparation_filters_and_normalizes_without_changing_source(tmp_path, ex
     assert frame.labels.tolist() == [["home"], ["electronics", "home"], ["home", "other"],
                                      ["no_ads"], ["spam"]]
     assert "label_encoded" not in frame
+    # Причины могут пересекаться, но число исключённых строк учитывает каждую один раз.
     assert report.total_rows == 21
     assert report.accepted_rows == 5
     assert report.excluded_rows == 16
@@ -68,10 +71,12 @@ def test_preparation_filters_and_normalizes_without_changing_source(tmp_path, ex
         "empty_text": 2, "exclusive_label_conflict": 2, "invalid_review_required": 2,
         "qa_incomplete": 2, "review_label": 2, "review_required": 2, "unknown_label": 1,
     }
+    # В примерах отчёта указаны номера записей, а не физические строки многострочного CSV.
     assert report.examples["review_label"] == [6, 20]
     assert report.examples["empty_label"] == [14, 21]
 
 
+# Поля QA необязательны для обычной таблицы с двумя столбцами text и label.
 def test_two_column_input_needs_no_qa_fields(tmp_path):
     path = tmp_path / "simple.csv"
     pd.DataFrame({"text": ["Объявление"] * len(CATEGORIES), "label": sorted(CATEGORIES)}).to_csv(
@@ -82,6 +87,7 @@ def test_two_column_input_needs_no_qa_fields(tmp_path):
     assert {labels[0] for labels in frame.labels} == CATEGORIES
 
 
+# Отсутствующий обязательный столбец приводит к понятной ошибке схемы.
 @pytest.mark.parametrize("columns", [{"text": ["Текст"]}, {"label": ["home"]}])
 def test_missing_required_columns(tmp_path, columns):
     path = tmp_path / "invalid.csv"
@@ -90,6 +96,7 @@ def test_missing_required_columns(tmp_path, columns):
         load_training_data(path)
 
 
+# Неподтверждённые и неизвестные состояния нельзя молча допускать к обучению.
 def test_incomplete_annotation_and_unknown_status_fail_closed(tmp_path):
     path = tmp_path / "status.csv"
     pd.DataFrame([
@@ -106,6 +113,7 @@ def test_incomplete_annotation_and_unknown_status_fail_closed(tmp_path):
     }
 
 
+# Команда проверки выдаёт отчёт, а режим singlelabel отклоняет совместные метки.
 def test_report_command_and_training_guard(tmp_path):
     path = tmp_path / "multilabel.csv"
     pd.DataFrame([record(label="electronics|home"), record(label="review", review_required=True)]).to_csv(
@@ -119,6 +127,7 @@ def test_report_command_and_training_guard(tmp_path):
     assert report["excluded_rows"] == 1
     assert report["multilabel_rows"] == 1
 
+    # Отказ происходит до создания каталога модели и сохраняет исходную таблицу.
     model_dir = tmp_path / "candidate"
     result = subprocess.run(
         [sys.executable, "train.py", "--input", path, "--epochs", "1", "--model-dir", model_dir],
@@ -129,6 +138,7 @@ def test_report_command_and_training_guard(tmp_path):
     assert path.read_bytes() == original
 
 
+# Полностью исключённая выборка даёт ненулевой код и не создаёт модель.
 def test_no_accepted_rows_are_reported_without_writing_model(tmp_path):
     path = tmp_path / "review.csv"
     pd.DataFrame([record(label="review", review_required=True)]).to_csv(path, index=False)
@@ -138,6 +148,7 @@ def test_no_accepted_rows_are_reported_without_writing_model(tmp_path):
     assert result.returncode == 1
     assert json.loads(result.stdout)["accepted_rows"] == 0
     assert "Нет строк" in result.stderr
+    # Прогнозируемая ошибка подготовки также останавливает саму команду обучения.
     result = subprocess.run(
         [sys.executable, "train.py", "--input", path, "--model-dir", tmp_path / "candidate"],
         cwd=ROOT, capture_output=True, text=True)
